@@ -1,6 +1,6 @@
 # appdimens-qt
 
-> AppDimens for Qt 5.12+ and Qt 6: QML singleton `AppDimens` with 172 reactive factor properties (`width: 120 * AppDimens.sdp`), per-window `DimensScope`, Widgets `AppDimens::Scope` with responsive Qt Style Sheets (`padding: 16sdp`), C++ literals (`16_sdp`), per-monitor fractional DPR, DPI, rotation. Windows, macOS, Linux, Android, iOS, embedded. Version 3.2.0.
+> AppDimens for Qt 5.12+ and Qt 6: QML singleton `AppDimens` with the 172 family tokens as reactive functions (`width: AppDimens.sdp(120)`, factors at `AppDimens.factors.sdp`), C++ `ad->sdp(16)` / `AppDimens::sdp(16)` / `16_sdp`, per-window `DimensScope`, Widgets `AppDimens::Scope` with responsive Qt Style Sheets (`padding: 16sdp`), C++ literals (`16_sdp`), per-monitor fractional DPR, DPI, rotation. Windows, macOS, Linux, Android, iOS, embedded. Version 3.2.0.
 
 - [README](README.md) · [Guide](docs/GUIDE.md) · [Skill](skills/appdimens-qt/SKILL.md)
 - Core: `include/appdimens/appdimens.h` (shared C99 core) · binding: `include/appdimens/appdimens_qt.hpp`

@@ -1,0 +1,6 @@
+<RCC>
+    <qresource prefix="/appdimens">
+        <file>AppDimens.qml</file>
+        <file>DimensScope.qml</file>
+    </qresource>
+</RCC>
