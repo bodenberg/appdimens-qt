@@ -19,5 +19,16 @@ Create one `Scope` (or `DimensScope`) per top-level window. Moving a window to a
 the new DPR/DPI.
 
 ## QML reactivity
-Factor properties (`AppDimens.sdp`) are NOTIFY properties. `AppDimens.dimen("16sdp")` is a function call: QML only
-re-evaluates it if the binding also reads a property — e.g. `AppDimens.revision`.
+`AppDimens.sdp(16)`, `ad.asdp(280)` and the helpers (`dimen`, `resolve`, `px`, `mm`, `styleSheet`) are QML functions that
+read the scope's NOTIFY properties, so any binding that calls them re-evaluates when the window, screen or DPR changes.
+The raw factors are NOTIFY properties too: `AppDimens.factors.sdp` (size = value × factor).
+
+## Same API on every surface
+
+| Where | Token applied to a value | Factor |
+|-------|--------------------------|--------|
+| QML (global) | `AppDimens.sdp(16)` | `AppDimens.factors.sdp` |
+| QML (window) | `DimensScope { id: ad; target: win }` → `ad.sdp(16)` | `ad.factors.sdp` |
+| C++ (window) | `ad->sdp(16)` | `ad->sdpFactor()` |
+| C++ (global) | `AppDimens::sdp(16)` · `16_sdp` (`using namespace AppDimens::literals`) | `Scope::global()->sdpFactor()` |
+| Style sheets / strings | `"padding: 16sdp"` (`bindStyleSheet`, `styleSheet`) | — |

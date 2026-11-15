@@ -1,6 +1,16 @@
-"""Generates the QML factor properties of AppDimens::Scope (moc cannot expand macros)."""
-import os
+"""Generates the family token API of AppDimens for Qt (moc cannot expand macros).
 
+Every token is used the AppDimens way — the token applied to a value:
+  C++    ad->sdp(16) · AppDimens::sdp(16) (global scope) · 16_sdp (literal, global scope)
+  QML    AppDimens.sdp(16) · ad.asdp(280) (DimensScope)  — reactive in bindings
+Factors stay available: ad->sdpFactor(), AppDimens.factors.sdp (QML).
+Outputs: include/appdimens/appdimens_qt.hpp (generated blocks), src/qml/AppDimens.qml,
+src/qml/DimensScope.qml. `--check` fails when an output is stale.
+"""
+import os
+import sys
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PREFIX = [("", "AD_SCALED"), ("a", "AD_AUTO"), ("p", "AD_PERCENT"), ("pw", "AD_POWER"), ("f", "AD_FLUID"),
           ("i", "AD_INTERPOLATED"), ("log", "AD_LOGARITHMIC"), ("dg", "AD_DIAGONAL"), ("pr", "AD_PERIMETER"),
           ("ft", "AD_FIT"), ("fl", "AD_FILL"), ("d", "AD_DENSITY")]
@@ -21,17 +31,105 @@ for name, v in [("sdpPh", "AD_VAR_S_PH"), ("sdpLh", "AD_VAR_S_LH"), ("sdpPw", "A
                 ("hdpLw", "AD_VAR_H_LW"), ("hdpPw", "AD_VAR_H_PW"), ("wdpLh", "AD_VAR_W_LH"), ("wdpPh", "AD_VAR_W_PH")]:
     props.append((name, "AD_SCALED", v, 0, False))
     props.append(("a" + name, "AD_AUTO", v, 0, False))
-decl = []
+names = [n for n, *_ in props]
+assert len(set(names)) == len(names)
+
+member = []
 for n, s, v, f, sp in props:
-    decl.append("    Q_PROPERTY(qreal %s READ %s NOTIFY changed)" % (n, n))
-decl.append("public:  // factor getters: size = value × factor")
+    member.append("    Q_PROPERTY(qreal %s READ %sFactor NOTIFY changed)" % (n, n))
+member.append("public:  // tokens: ad->sdp(16) = 16 × factor (logical px) · factors: ad->sdpFactor()")
 for n, s, v, f, sp in props:
     expr = "m_m.table[%s][AD_SLOT(%s, %d)]" % (s, v, f) + (" * m_m.in.font_scale" if sp else "")
-    decl.append("    qreal %s() const { return %s; }" % (n, expr))
-out = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "include", "appdimens", "appdimens_qt.hpp")
-src = open(out).read()
-a = src.index("    // <generated>")
-a = src.index("\n", a) + 1
-b = src.index("    // </generated>")
-open(out, "w").write(src[:a] + "\n".join(decl) + "\n" + src[b:])
-print(out, len(props), "properties")
+    member.append("    qreal %sFactor() const { return %s; }" % (n, expr))
+    member.append("    qreal %s(qreal v) const { return v * %sFactor(); }" % (n, n))
+
+free = ["// Global scope (Scope::global()), the AppDimens way: AppDimens::sdp(16), AppDimens::asdp(280) …"]
+for n, *_ in props:
+    free.append("inline qreal %s(qreal v) { return Scope::global()->%s(v); }" % (n, n))
+free.append("")
+free.append("namespace literals {")
+free.append("// Literals over the global scope (logical px): 16_sdp, 14_ssp, 12.5_asdp, 120_ftsdp …")
+for n, *_ in props:
+    free.append("inline qreal operator\"\"_%s(unsigned long long v) { return Scope::global()->%s(qreal(v)); }" % (n, n))
+    free.append("inline qreal operator\"\"_%s(long double v) { return Scope::global()->%s(qreal(v)); }" % (n, n))
+free.append("} // namespace literals")
+
+FUNCS = "\n".join("    function %s(v) { return v * core.%s }" % (n, n) for n in names)
+COMMON = """    // Values and helpers (reactive: each reads the scope's revision)
+    function dimen(expr, fallback) { void core.revision; return core.dimen(expr, fallback === undefined ? 0 : fallback) }
+    function px(expr) { void core.revision; return core.px(expr) }
+    function resolve(token, value) { void core.revision; return core.resolve(token, value) }
+    function factor(token) { void core.revision; return core.factor(token) }
+    function spaceW(p) { return p * 0.01 * core.width }
+    function spaceH(p) { return p * 0.01 * core.height }
+    function mm(v) { void core.revision; return core.mm(v) }
+    function inch(v) { void core.revision; return core.inch(v) }
+    function styleSheet(t) { void core.revision; return core.styleSheet(t) }
+    function refresh() { return core.refresh() }
+    // Snapshot
+    readonly property real width: core.width
+    readonly property real height: core.height
+    readonly property real smallestWidth: core.smallestWidth
+    readonly property real density: core.density
+    readonly property real dpi: core.dpi
+    readonly property bool landscape: core.landscape
+    readonly property bool portrait: core.portrait
+    readonly property int revision: core.revision
+    readonly property real fontScale: core.fontScale
+    readonly property bool multiWindow: core.multiWindow
+    readonly property int uiMode: core.uiMode
+    /// Factor properties (size = value × factor): factors.sdp, factors.asdp … Writable inputs:
+    /// factors.fontScale, factors.multiWindow, factors.uiMode.
+    readonly property QtObject factors: core
+    signal changed()
+    Component.onCompleted: core.changed.connect(changed)
+"""
+HEADER = "// Generated by tools/gen_properties.py — do not edit by hand.\n"
+qml_single = HEADER + """// Singleton `AppDimens` (global scope): AppDimens.sdp(16), AppDimens.assp(14), AppDimens.dimen("16sdp").
+pragma Singleton
+import QtQml 2.12
+import AppDimens.Core 1.0
+
+QtObject {
+    readonly property QtObject core: AppDimensCore
+%s
+%s}
+""" % (COMMON, FUNCS)
+qml_scope = HEADER + """// Per-window scope: DimensScope { id: ad; target: win } … width: ad.asdp(280).
+import QtQml 2.12
+import AppDimens.Core 1.0
+
+QtObject {
+    id: scope
+    /// QWindow / Window item to track (default: the first window shown).
+    property QtObject target: null
+    readonly property DimensScopeCore core: DimensScopeCore { target: scope.target }
+%s
+%s}
+""" % (COMMON, FUNCS)
+
+outputs = {}
+hpp = os.path.join(ROOT, "include", "appdimens", "appdimens_qt.hpp")
+src = open(hpp).read()
+def splice(text, begin, end, body):
+    a = text.index(begin); a = text.index("\n", a) + 1
+    b = text.index(end)
+    return text[:a] + body + "\n" + text[b:]
+src = splice(src, "    // <generated>", "    // </generated>", "\n".join(member))
+src = splice(src, "    // <generated-free>", "    // </generated-free>", "\n".join(free))
+outputs[hpp] = src
+outputs[os.path.join(ROOT, "src", "qml", "AppDimens.qml")] = qml_single
+outputs[os.path.join(ROOT, "src", "qml", "DimensScope.qml")] = qml_scope
+
+stale = []
+for path, text in outputs.items():
+    old = open(path).read() if os.path.exists(path) else None
+    if old != text:
+        if "--check" in sys.argv:
+            stale.append(os.path.relpath(path, ROOT))
+        else:
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            open(path, "w").write(text)
+if stale:
+    sys.exit("stale generated files (run python3 tools/gen_properties.py): " + ", ".join(stale))
+print(len(props), "tokens")

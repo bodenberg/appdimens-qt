@@ -19,3 +19,16 @@ jobs:
       - run: cmake --build build --config Release
       - run: ctest --test-dir build -C Release --output-on-failure
         env: { QT_QPA_PLATFORM: offscreen, QT_QUICK_BACKEND: software }
+      - name: qmake integration (appdimens-qt.pri + QML module)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          mkdir -p build-qmake && cd build-qmake
+          qmake ../tests/qmake/qmake_check.pro && make -j4
+          QT_QPA_PLATFORM=offscreen ./qmake_check
+  generated:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: generated token API is up to date
+        run: python3 tools/gen_properties.py --check

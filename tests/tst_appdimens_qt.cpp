@@ -22,8 +22,10 @@ private slots:
     void reference() {
         Scope s;
         QCOMPARE(s.dimen("16sdp"), 16.0);
-        QCOMPARE(s.sdp(), 1.0);
-        QVERIFY(qFuzzyCompare(s.asdp(), 1.0));
+        QCOMPARE(s.sdpFactor(), 1.0);
+        QVERIFY(qFuzzyCompare(s.asdpFactor(), 1.0));
+        QCOMPARE(s.sdp(16), 16.0);                      // the AppDimens way: token applied to a value
+        QCOMPARE(s.sdp(16), s.dimen("16sdp"));
     }
     void manualInputAndTokens() {
         Scope s;
@@ -42,8 +44,9 @@ private slots:
         QCOMPARE(s.dimen("bad", -1), -1.0);
         QCOMPARE(s.resolve("bad", 7), 7.0);
         QCOMPARE(s.px("16sdp"), 32);
-        QCOMPARE(s.ssp(), 2.5);
-        QCOMPARE(s.hdpLw(), 1024.0 / 300.0);        // portrait → height
+        QCOMPARE(s.sspFactor(), 2.5);
+        QCOMPARE(s.ssp(14), 35.0);
+        QCOMPARE(s.hdpLwFactor(), 1024.0 / 300.0);  // portrait → height
         QCOMPARE(s.spaceW(50), 300.0);
         QVERIFY(s.portrait());
         QCOMPARE(s.styleSheet("QPushButton{padding:16sdp;color:#1d4ed8;border:1px}"),
@@ -87,19 +90,25 @@ private slots:
         QQmlEngine engine;
         QQmlComponent c(&engine);
         c.setData("import QtQuick 2.12\nimport AppDimens 1.0\n"
-                  "Item { width: 100 * AppDimens.sdp; height: 10 * AppDimens.ssp;"
+                  "Item { width: AppDimens.sdp(100); height: AppDimens.ssp(10);"
                   " property real a: AppDimens.dimen('16asdp', 0);"
-                  " property real t: 120 * AppDimens.ftsdp }", QUrl());
+                  " property real t: AppDimens.ftsdp(120);"
+                  " property real f: AppDimens.factors.sdp;"
+                  " property real r: AppDimens.resolve('sdpPh', 10) }", QUrl());
         QScopedPointer<QObject> o(c.create());
         QVERIFY2(o, qPrintable(c.errorString()));
         auto *item = qobject_cast<QQuickItem *>(o.data());
         QCOMPARE(item->width(), 120.0);
         in.width = 720; in.height = 1280;
         g->setInput(in);
-        QCOMPARE(item->width(), 240.0);              // binding re-evaluated through NOTIFY
+        QCOMPARE(item->width(), 240.0);              // AppDimens.sdp(100) re-evaluated on change
         QCOMPARE(item->height(), 24.0);
+        QCOMPARE(o->property("f").toReal(), 2.4);
+        QVERIFY(qAbs(o->property("a").toReal() - g->asdp(16)) < 1e-9);   // dimen() is reactive too
+        QVERIFY(qAbs(o->property("t").toReal() - g->ftsdp(120)) < 1e-9);
+        QVERIFY(qAbs(o->property("r").toReal() - g->resolve("sdpPh", 10)) < 1e-9);
         QQmlComponent c2(&engine);
-        c2.setData("import QtQuick 2.12\nimport AppDimens 1.0\nItem { DimensScope { id: d } width: 50 * d.sdp }", QUrl());
+        c2.setData("import QtQuick 2.12\nimport AppDimens 1.0\nItem { DimensScope { id: d } width: d.sdp(50); height: d.asdp(10) }", QUrl());
         QScopedPointer<QObject> o2(c2.create());
         QVERIFY2(o2, qPrintable(c2.errorString()));
         QCOMPARE(qobject_cast<QQuickItem *>(o2.data())->width(), 50.0);
@@ -111,6 +120,10 @@ private slots:
         Scope::global()->setInput(in);
         QCOMPARE(qreal(16_sdp), 48.0);
         QCOMPARE(qreal(2.5_sdp), 7.5);
+        QCOMPARE(qreal(10_asdp), Scope::global()->asdp(10));
+        QCOMPARE(qreal(10_hdpLw), Scope::global()->hdpLw(10));
+        QCOMPARE(AppDimens::sdp(16), 48.0);            // free function over the global scope
+        QCOMPARE(AppDimens::logssp(10), Scope::global()->logssp(10));
     }
 };
 

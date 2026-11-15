@@ -11,14 +11,14 @@ Window {
 
     Rectangle {
         anchors.centerIn: parent
-        width: 280 * ad.asdp; height: 180 * ad.asdp
-        radius: 12 * ad.sdp
+        width: ad.asdp(280); height: ad.asdp(180)
+        radius: ad.sdp(12)
         color: "#1d4ed8"
         Column {
-            anchors.fill: parent; anchors.margins: 16 * ad.sdp; spacing: 8 * ad.sdp
-            Text { text: "AppDimens for QML"; color: "white"; font.pixelSize: 20 * ad.assp; font.bold: true }
+            anchors.fill: parent; anchors.margins: ad.sdp(16); spacing: ad.sdp(8)
+            Text { text: "AppDimens for QML"; color: "white"; font.pixelSize: ad.assp(20); font.bold: true }
             Text { text: ad.width.toFixed(0) + " × " + ad.height.toFixed(0) + " · dpr " + ad.density
-                   color: "white"; font.pixelSize: 14 * ad.ssp }
+                   color: "white"; font.pixelSize: ad.ssp(14) }
         }
     }
 }
