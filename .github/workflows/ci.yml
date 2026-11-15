@@ -9,7 +9,7 @@ jobs:
           - { os: ubuntu-latest,  qt: "6.8.*" }
           - { os: ubuntu-latest,  qt: "5.15.2" }
           - { os: windows-latest, qt: "6.8.*" }
-          - { os: macos-latest,   qt: "6.8.*" }
+          - { os: macos-latest,   qt: "6.10.*" }   # Qt 6.8 still links AGL, gone from the current macOS SDK
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
