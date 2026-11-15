@@ -67,6 +67,21 @@ const ad_metrics &m = ad->metrics();    // core hot path: ad_sdp(&m, 16), ad_fts
 Updates are signal/event driven (resize, screen change, DPR change, screen DPI/geometry/orientation) — no polling;
 identical snapshots don't emit `changed()`.
 
+## Custom strategies
+
+Your own scaling rule, shared with every AppDimens platform (same JSON document and text formulas),
+through the C99 single header `appdimens_custom.h`:
+
+```c
+#define ADC_IMPLEMENTATION
+#include "appdimens/appdimens_custom.h"
+adc_load_json(json_text, err, sizeof err);                       /* ids + "default" */
+float pad = adc_dp(adc_get("brand"), &AppDimens::Scope::global()->metrics(), 16);
+adc_strategy *hud = adc_formula("base * pow(sw / 360, 0.8)", err, sizeof err);
+```
+
+Reproduces the cross-platform 540-case fixture. Details: [docs/CUSTOM.md](docs/CUSTOM.md).
+
 ## Precision and performance
 
 - Core parity: 10 704 checks against reference vectors (float/double/no-libm/fixed point) — `tests/test_core.c`.
